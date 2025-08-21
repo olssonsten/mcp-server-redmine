@@ -184,6 +184,211 @@ describe('Issues Handler - Brief Mode Integration', () => {
       // Should be longer than brief mode
       expect(result.content[0].text.length).toBeGreaterThan(2000);
     });
+
+    describe('Text Filtering', () => {
+      it('should handle subject_filter parameter', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          subject_filter: 'SYSTEM',
+          detail_level: 'brief'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          subject_filter: 'SYSTEM',
+          'f[]': 'subject',
+          'op[subject]': '~',
+          'v[subject][]': 'SYSTEM',
+        });
+        
+        expect(result.isError).toBe(false);
+        expect(result.content[0].text).toContain('<issues type="array"');
+      });
+
+      it('should handle description_filter parameter', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          description_filter: 'manager',
+          detail_level: 'brief'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          description_filter: 'manager',
+          'f[]': 'description',
+          'op[description]': '~',
+          'v[description][]': 'manager'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should handle notes_filter parameter', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          notes_filter: 'update',
+          detail_level: 'brief'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          notes_filter: 'update',
+          'f[]': 'notes',
+          'op[notes]': '~',
+          'v[notes][]': 'update'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should handle multiple text filters simultaneously', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          subject_filter: 'SYSTEM',
+          description_filter: 'manager',
+          notes_filter: 'update',
+          detail_level: 'brief'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          subject_filter: 'SYSTEM',
+          description_filter: 'manager',
+          notes_filter: 'update',
+          'f[]': 'subject,description,notes',
+          'op[subject]': '~',
+          'op[description]': '~',
+          'op[notes]': '~',
+          'v[subject][]': 'SYSTEM',
+          'v[description][]': 'manager',
+          'v[notes][]': 'update'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should combine text filters with existing filters', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          project_id: '123',
+          status_id: 'open',
+          subject_filter: 'SYSTEM',
+          detail_level: 'brief',
+          limit: '20'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 20,
+          offset: 0,
+          project_id: 123,
+          status_id: 'open',
+          subject_filter: 'SYSTEM',
+          'f[]': 'subject',
+          'op[subject]': '~',
+          'v[subject][]': 'SYSTEM'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should maintain backward compatibility when no text filters are provided', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          project_id: '123',
+          status_id: 'open',
+          detail_level: 'brief'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          project_id: 123,
+          status_id: 'open'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should handle text filters with full mode', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          subject_filter: 'SYSTEM',
+          detail_level: 'full'
+        });
+
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          subject_filter: 'SYSTEM',
+          'f[]': 'subject',
+          'op[subject]': '~',
+          'v[subject][]': 'SYSTEM'
+        });
+        
+        expect(result.isError).toBe(false);
+        expect(result.content[0].text).toContain('<author>');
+        expect(result.content[0].text).toContain('<custom_fields>');
+      });
+
+      it('should handle empty text filter values gracefully', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          subject_filter: '',
+          description_filter: 'manager',
+          detail_level: 'brief'
+        });
+
+        // Empty subject_filter should not generate filter parameters
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          subject_filter: '',
+          description_filter: 'manager',
+          'f[]': 'description',
+          'op[description]': '~',
+          'v[description][]': 'manager'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+
+      it('should handle whitespace-only text filter values gracefully', async () => {
+        mockGetIssues.mockResolvedValue(mockIssuesList);
+
+        const result = await handlers.list_issues({
+          subject_filter: '   ',
+          description_filter: 'manager',
+          notes_filter: '',
+          detail_level: 'brief'
+        });
+
+        // Whitespace-only and empty filters should not generate filter parameters
+        expect(mockGetIssues).toHaveBeenCalledWith({
+          limit: 25,
+          offset: 0,
+          subject_filter: '   ',
+          description_filter: 'manager',
+          notes_filter: '',
+          'f[]': 'description',
+          'op[description]': '~',
+          'v[description][]': 'manager'
+        });
+        
+        expect(result.isError).toBe(false);
+      });
+    });
   });
 
   describe('Brief Mode Performance Characteristics', () => {

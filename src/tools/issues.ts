@@ -89,6 +89,19 @@ export const ISSUE_LIST_TOOL: Tool = {
         type: "string",
         pattern: "^cf_\\d+$",
       },
+      // Text filters
+      subject_filter: {
+        type: "string",
+        description: "Filter by text contained in issue subject/title",
+      },
+      description_filter: {
+        type: "string",
+        description: "Filter by text contained in issue description",
+      },
+      notes_filter: {
+        type: "string",
+        description: "Filter by text contained in issue notes/journals",
+      },
       // Formatting options
       detail_level: {
         type: "string",

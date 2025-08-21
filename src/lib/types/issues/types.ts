@@ -29,6 +29,10 @@ export interface IssueListParams {
   parent_id?: number;
   created_on?: string;
   updated_on?: string;
+  // Text filters
+  subject_filter?: string;
+  description_filter?: string;
+  notes_filter?: string;
   [key: `cf_${number}`]: string; // Custom fields e.g. cf_1, cf_2
 }
 
