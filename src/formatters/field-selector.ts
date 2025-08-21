@@ -6,9 +6,21 @@ import type { RedmineIssue } from "../lib/types/index.js";
 import type { BriefFieldOptions } from "./format-options.js";
 
 /**
+ * Result of field selection with optional warnings
+ */
+export interface FieldSelectionResult {
+  /** Selected issue fields */
+  issue: Partial<RedmineIssue>;
+  /** Warnings about missing or invalid fields */
+  warnings?: string[];
+}
+
+/**
  * Select fields from an issue based on brief field options
  */
-export function selectFields(issue: RedmineIssue, options: BriefFieldOptions): Partial<RedmineIssue> {
+export function selectFields(issue: RedmineIssue, options: BriefFieldOptions): FieldSelectionResult {
+  const warnings: string[] = [];
+  
   // Always include essential fields
   const selected: Partial<RedmineIssue> = {
     id: issue.id,
@@ -51,8 +63,13 @@ export function selectFields(issue: RedmineIssue, options: BriefFieldOptions): P
     if (issue.done_ratio !== undefined) selected.done_ratio = issue.done_ratio;
   }
 
+  // Handle custom fields with selective filtering
   if (options.custom_fields && issue.custom_fields) {
-    selected.custom_fields = skipEmptyCustomFields(issue.custom_fields);
+    const customFieldResult = selectCustomFields(issue.custom_fields, options.custom_fields);
+    selected.custom_fields = customFieldResult.fields;
+    if (customFieldResult.warnings.length > 0) {
+      warnings.push(...customFieldResult.warnings);
+    }
   }
 
   if (options.journals && issue.journals) {
@@ -63,7 +80,104 @@ export function selectFields(issue: RedmineIssue, options: BriefFieldOptions): P
     selected.relations = issue.relations;
   }
 
-  return selected;
+  return {
+    issue: selected,
+    warnings: warnings.length > 0 ? warnings : undefined
+  };
+}
+
+/**
+ * Result of custom field selection
+ */
+interface CustomFieldSelectionResult {
+  fields: Array<{ id: number; name: string; value: string | string[] | null }>;
+  warnings: string[];
+}
+
+/**
+ * Select custom fields based on the custom_fields option
+ */
+function selectCustomFields(
+  customFields: Array<{ id: number; name: string; value: string | string[] | null }>,
+  option: boolean | string[]
+): CustomFieldSelectionResult {
+  const warnings: string[] = [];
+  
+  // If true, include all non-empty custom fields
+  if (option === true) {
+    return {
+      fields: skipEmptyCustomFields(customFields),
+      warnings: []
+    };
+  }
+  
+  // If false or empty array, include no custom fields
+  if (option === false || (Array.isArray(option) && option.length === 0)) {
+    return {
+      fields: [],
+      warnings: []
+    };
+  }
+  
+  // If array of field names, include only matching fields
+  if (Array.isArray(option)) {
+    const selectedFields: Array<{ id: number; name: string; value: string | string[] | null }> = [];
+    const foundFieldNames = new Set<string>();
+    
+    // Find matching fields by name
+    for (const field of customFields) {
+      if (option.includes(field.name)) {
+        foundFieldNames.add(field.name);
+        // Only include non-empty fields
+        if (isCustomFieldNonEmpty(field)) {
+          selectedFields.push(field);
+        }
+      }
+    }
+    
+    // Check for requested fields that weren't found or are empty
+    for (const requestedName of option) {
+      if (!foundFieldNames.has(requestedName)) {
+        warnings.push(`Custom field "${requestedName}" not found or empty`);
+      } else {
+        // Field was found, check if it was included (non-empty)
+        const foundField = customFields.find(f => f.name === requestedName);
+        if (foundField && !isCustomFieldNonEmpty(foundField)) {
+          warnings.push(`Custom field "${requestedName}" not found or empty`);
+        }
+      }
+    }
+    
+    return {
+      fields: selectedFields,
+      warnings: warnings
+    };
+  }
+  
+  // Fallback: treat as false
+  return {
+    fields: [],
+    warnings: []
+  };
+}
+
+/**
+ * Check if a custom field has a non-empty value
+ */
+function isCustomFieldNonEmpty(field: { id: number; name: string; value: string | string[] | null }): boolean {
+  if (field.value === null || field.value === undefined) {
+    return false;
+  }
+  
+  if (typeof field.value === 'string') {
+    return field.value.trim().length > 0;
+  }
+  
+  if (Array.isArray(field.value)) {
+    return field.value.length > 0 && field.value.some(v => v && v.trim().length > 0);
+  }
+  
+  return true;
 }
 
 /**

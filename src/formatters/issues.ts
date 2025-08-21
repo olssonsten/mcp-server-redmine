@@ -1,7 +1,7 @@
 import type { RedmineApiResponse, RedmineIssue } from "../lib/types/index.js";
 import type { FormatOptions, BriefFieldOptions } from "./format-options.js";
 import { OutputDetailLevel, createDefaultBriefFields } from "./format-options.js";
-import { selectFields, skipEmptyCustomFields } from "./field-selector.js";
+import { selectFields, skipEmptyCustomFields, type FieldSelectionResult } from "./field-selector.js";
 import { truncateDescription, limitJournalEntries } from "./text-truncation.js";
 
 /**
@@ -73,7 +73,8 @@ function formatJournals(journals: Array<{
  */
 export function formatIssueBrief(issue: RedmineIssue, options: BriefFieldOptions, maxDescLength: number = 200, maxJournalEntries: number = 3): string {
   // Select only the fields specified in options
-  const selectedIssue = selectFields(issue, options);
+  const selectionResult = selectFields(issue, options);
+  const selectedIssue = selectionResult.issue;
   
   // Build the brief XML output with only essential and selected fields
   let briefXml = `<issue>
@@ -84,15 +85,29 @@ export function formatIssueBrief(issue: RedmineIssue, options: BriefFieldOptions
   <status>${escapeXml(selectedIssue.status?.name)}</status>
   <priority>${escapeXml(selectedIssue.priority?.name)}</priority>`;
 
+  // Add warnings if any
+  if (selectionResult.warnings && selectionResult.warnings.length > 0) {
+    briefXml += `\n  <warnings>`;
+    for (const warning of selectionResult.warnings) {
+      briefXml += `\n    <warning>${escapeXml(warning)}</warning>`;
+    }
+    briefXml += `\n  </warnings>`;
+  }
+
   // Add optional fields based on selection
   if (selectedIssue.assigned_to) {
     briefXml += `\n  <assigned_to>${escapeXml(selectedIssue.assigned_to.name)}</assigned_to>`;
   }
 
+  // Handle description with truncation support
   if (selectedIssue.description && options.description) {
-    const truncatedDesc = truncateDescription(selectedIssue.description, maxDescLength);
-    if (truncatedDesc) {
-      briefXml += `\n  <description>${escapeXml(truncatedDesc)}</description>`;
+    if (options.description === "truncated") {
+      const truncatedDesc = truncateDescription(selectedIssue.description, maxDescLength);
+      if (truncatedDesc) {
+        briefXml += `\n  <description>${escapeXml(truncatedDesc)}</description>`;
+      }
+    } else if (options.description === true) {
+      briefXml += `\n  <description>${escapeXml(selectedIssue.description)}</description>`;
     }
   }
 
@@ -118,9 +133,8 @@ export function formatIssueBrief(issue: RedmineIssue, options: BriefFieldOptions
   }
 
   if (selectedIssue.custom_fields && options.custom_fields) {
-    const nonEmptyFields = skipEmptyCustomFields(selectedIssue.custom_fields);
-    if (nonEmptyFields.length > 0) {
-      briefXml += formatCustomFields(nonEmptyFields);
+    if (selectedIssue.custom_fields.length > 0) {
+      briefXml += formatCustomFields(selectedIssue.custom_fields);
     }
   }
 

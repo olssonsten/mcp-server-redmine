@@ -5,8 +5,8 @@ import type { RedmineApiResponse } from '../../lib/types/index.js';
 import type { HandlerContext } from '../types.js';
 
 // Mock the IssuesClient
-const mockGetIssue = jest.fn();
-const mockGetIssues = jest.fn();
+const mockGetIssue = jest.fn() as jest.MockedFunction<any>;
+const mockGetIssues = jest.fn() as jest.MockedFunction<any>;
 
 const mockClient = {
   issues: {
@@ -46,7 +46,7 @@ describe('Issues Handler - Brief Mode Integration', () => {
       
       // Brief mode characteristics
       expect(result.content[0].text).not.toContain('<author>');
-      expect(result.content[0].text).not.toContain('<description>');
+      expect(result.content[0].text).toContain('<description>'); // Now included by default (truncated)
       expect(result.content[0].text).not.toContain('<custom_fields>');
       
       // Should be significantly shorter than full mode
@@ -155,7 +155,7 @@ describe('Issues Handler - Brief Mode Integration', () => {
       
       // Brief mode characteristics for all issues
       expect(result.content[0].text).not.toContain('<author>');
-      expect(result.content[0].text).not.toContain('<description>');
+      expect(result.content[0].text).toContain('<description>'); // Now included by default (truncated)
       
       // Should be significantly shorter than full mode
       const issueMatches = result.content[0].text.match(/<issue>/g);
@@ -210,9 +210,9 @@ describe('Issues Handler - Brief Mode Integration', () => {
       console.log(`Handler Full mode length: ${fullText.length} characters`);
       console.log(`Handler Size reduction: ${reductionPercentage.toFixed(1)}%`);
       
-      // Verify significant reduction
-      expect(reductionPercentage).toBeGreaterThan(80);
-      expect(briefText.length).toBeLessThan(fullText.length * 0.2);
+      // Verify significant reduction (adjusted for truncated descriptions now included by default)
+      expect(reductionPercentage).toBeGreaterThan(70);
+      expect(briefText.length).toBeLessThan(fullText.length * 0.3);
     });
 
     it('should maintain essential information in brief mode handler', async () => {

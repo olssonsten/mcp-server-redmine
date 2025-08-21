@@ -282,5 +282,250 @@ describe('Text Truncation', () => {
       expect(mockJournals[0]).toEqual(originalFirstEntry);
       expect(result).not.toBe(mockJournals);
     });
+
+    it('should truncate long notes in journal entries', () => {
+      const journalsWithLongNotes = [
+        {
+          id: 1,
+          user: { id: 1, name: 'User 1' },
+          notes: 'This is a very long journal note that should be truncated when the maxNoteLength parameter is set to a small value',
+          created_on: '2024-01-01T10:00:00Z',
+          details: []
+        }
+      ];
+
+      const result = limitJournalEntries(journalsWithLongNotes, 1, 50);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].notes).toContain('...');
+      expect(result[0].notes!.length).toBeLessThanOrEqual(53); // 50 + "..."
+    });
+
+    it('should handle undefined journals', () => {
+      const result = limitJournalEntries(undefined, 3);
+      
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('summarizeCustomFields', () => {
+    let mockCustomFields: Array<{
+      id: number;
+      name: string;
+      value: string | string[] | null;
+    }>;
+
+    beforeEach(() => {
+      mockCustomFields = [
+        { id: 1, name: 'Priority Level', value: 'Critical' },
+        { id: 2, name: 'Component', value: 'Authentication' },
+        { id: 3, name: 'Affected Versions', value: ['v1.0.0', 'v1.1.0', 'v1.2.0'] },
+        { id: 4, name: 'Empty String Field', value: '' },
+        { id: 5, name: 'Whitespace Field', value: '   ' },
+        { id: 6, name: 'Null Field', value: null },
+        { id: 7, name: 'Empty Array Field', value: [] },
+        { id: 8, name: 'Long Text Field', value: 'This is a very long custom field value that should be truncated when displayed in brief mode to maintain readability and prevent information overload.' }
+      ];
+    });
+
+    it('should return empty string for undefined custom fields', () => {
+      const result = summarizeCustomFields(undefined);
+      
+      expect(result).toBe('');
+    });
+
+    it('should return empty string for empty custom fields array', () => {
+      const result = summarizeCustomFields([]);
+      
+      expect(result).toBe('');
+    });
+
+    it('should filter out empty and null fields', () => {
+      const result = summarizeCustomFields(mockCustomFields);
+      
+      expect(result).not.toContain('Empty String Field');
+      expect(result).not.toContain('Whitespace Field');
+      expect(result).not.toContain('Null Field');
+      expect(result).not.toContain('Empty Array Field');
+    });
+
+    it('should include non-empty string fields', () => {
+      const result = summarizeCustomFields(mockCustomFields);
+      
+      expect(result).toContain('Priority Level: Critical');
+      expect(result).toContain('Component: Authentication');
+    });
+
+    it('should handle array values by joining them', () => {
+      const result = summarizeCustomFields(mockCustomFields);
+      
+      expect(result).toContain('Affected Versions: v1.0.0, v1.1.0, v1.2.0');
+    });
+
+    it('should truncate long field values', () => {
+      const result = summarizeCustomFields(mockCustomFields);
+      
+      expect(result).toContain('Long Text Field:');
+      expect(result).toContain('...');
+      // The long field value should be truncated to 50 chars + "..."
+      const longFieldMatch = result.match(/Long Text Field: ([^;]+)/);
+      expect(longFieldMatch).toBeTruthy();
+      if (longFieldMatch) {
+        expect(longFieldMatch[1].length).toBeLessThanOrEqual(53); // 50 + "..."
+      }
+    });
+
+    it('should limit number of fields to maxFields parameter', () => {
+      const result = summarizeCustomFields(mockCustomFields, 2);
+      
+      // Should only include 2 non-empty fields
+      const fieldCount = (result.match(/:/g) || []).length;
+      expect(fieldCount).toBeLessThanOrEqual(2);
+    });
+
+    it('should join multiple fields with semicolons', () => {
+      const simpleFields = [
+        { id: 1, name: 'Field1', value: 'Value1' },
+        { id: 2, name: 'Field2', value: 'Value2' }
+      ];
+      
+      const result = summarizeCustomFields(simpleFields);
+      
+      expect(result).toBe('Field1: Value1; Field2: Value2');
+    });
+
+    it('should handle fields with only whitespace as empty', () => {
+      const whitespaceFields = [
+        { id: 1, name: 'Valid Field', value: 'Valid Value' },
+        { id: 2, name: 'Whitespace Field', value: '   \n\t   ' }
+      ];
+      
+      const result = summarizeCustomFields(whitespaceFields);
+      
+      expect(result).toBe('Valid Field: Valid Value');
+      expect(result).not.toContain('Whitespace Field');
+    });
+
+    it('should return empty string when all fields are empty', () => {
+      const emptyFields = [
+        { id: 1, name: 'Empty1', value: '' },
+        { id: 2, name: 'Empty2', value: null },
+        { id: 3, name: 'Empty3', value: [] }
+      ];
+      
+      const result = summarizeCustomFields(emptyFields);
+      
+      expect(result).toBe('');
+    });
+
+    it('should handle array values that become long when joined', () => {
+      const longArrayField = [
+        { 
+          id: 1, 
+          name: 'Long Array', 
+          value: ['Very long value 1', 'Very long value 2', 'Very long value 3', 'Very long value 4'] 
+        }
+      ];
+      
+      const result = summarizeCustomFields(longArrayField);
+      
+      expect(result).toContain('Long Array:');
+      expect(result).toContain('...');
+    });
+  });
+
+  describe('stripHtmlTags', () => {
+    it('should remove HTML tags', () => {
+      const html = '<p>This is <strong>bold</strong> text with <em>emphasis</em>.</p>';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('This is bold text with emphasis.');
+    });
+
+    it('should handle self-closing tags', () => {
+      const html = 'Line one<br/>Line two<hr/>Line three';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Line oneLine twoLine three');
+    });
+
+    it('should decode common HTML entities', () => {
+      const html = 'AT&amp;T &lt;company&gt; says &quot;Hello&quot; &amp; &#39;Goodbye&#39;';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('AT&T <company> says "Hello" & \'Goodbye\'');
+    });
+
+    it('should replace non-breaking spaces', () => {
+      const html = 'Word1&nbsp;Word2&nbsp;&nbsp;Word3';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Word1 Word2  Word3');
+    });
+
+    it('should handle nested HTML tags', () => {
+      const html = '<div><p>Nested <span>content</span> here</p></div>';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Nested content here');
+    });
+
+    it('should handle malformed HTML gracefully', () => {
+      const html = '<p>Unclosed tag <strong>bold text';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Unclosed tag bold text');
+    });
+
+    it('should trim whitespace after processing', () => {
+      const html = '  <p>  Content with spaces  </p>  ';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Content with spaces');
+    });
+
+    it('should handle empty string', () => {
+      const result = stripHtmlTags('');
+      
+      expect(result).toBe('');
+    });
+
+    it('should handle text without HTML tags', () => {
+      const text = 'Plain text without any HTML';
+      const result = stripHtmlTags(text);
+      
+      expect(result).toBe(text);
+    });
+
+    it('should handle HTML with attributes', () => {
+      const html = '<a href="http://example.com" class="link">Link text</a>';
+      const result = stripHtmlTags(html);
+      
+      expect(result).toBe('Link text');
+    });
+
+    it('should handle complex HTML document structure', () => {
+      const html = `
+        <html>
+          <head><title>Title</title></head>
+          <body>
+            <h1>Header</h1>
+            <p>Paragraph with <a href="#">link</a></p>
+            <ul>
+              <li>Item 1</li>
+              <li>Item 2</li>
+            </ul>
+          </body>
+        </html>
+      `;
+      const result = stripHtmlTags(html);
+      
+      expect(result).toContain('Header');
+      expect(result).toContain('Paragraph with link');
+      expect(result).toContain('Item 1');
+      expect(result).toContain('Item 2');
+      expect(result).not.toContain('<');
+      expect(result).not.toContain('>');
+    });
   });
 });

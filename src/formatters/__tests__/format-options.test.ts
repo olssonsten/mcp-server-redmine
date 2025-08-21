@@ -33,8 +33,8 @@ describe('Format Options', () => {
       expect(defaultFields).toEqual({
         assignee: true,
         dates: true,
-        description: false,
-        custom_fields: false,
+        description: "truncated",
+        custom_fields: [],
         category: false,
         version: false,
         time_tracking: false,

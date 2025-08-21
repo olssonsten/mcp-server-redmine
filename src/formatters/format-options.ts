@@ -16,10 +16,10 @@ export enum OutputDetailLevel {
 export interface BriefFieldOptions {
   /** Include assignee information */
   assignee?: boolean;
-  /** Include issue description (truncated) */
-  description?: boolean;
-  /** Include custom fields (non-empty only) */
-  custom_fields?: boolean;
+  /** Include issue description: false = exclude, true = full, "truncated" = truncated */
+  description?: boolean | "truncated";
+  /** Include custom fields: false = exclude, true = all non-empty, string[] = specific field names */
+  custom_fields?: boolean | string[];
   /** Include start/due dates */
   dates?: boolean;
   /** Include category information */
@@ -103,8 +103,8 @@ export function createDefaultBriefFields(): BriefFieldOptions {
   return {
     assignee: true,
     dates: true,
-    description: false,
-    custom_fields: false,
+    description: "truncated",
+    custom_fields: [],
     category: false,
     version: false,
     time_tracking: false,

@@ -28,8 +28,8 @@ describe('Issue Formatters', () => {
       // Dates are always included in brief mode (created_on and updated_on)
       expect(result).toContain('<created_on>2024-01-01T10:00:00Z</created_on>');
       expect(result).toContain('<updated_on>2024-01-01T10:00:00Z</updated_on>');
-      // Should not contain description in brief mode by default
-      expect(result).not.toContain('<description>');
+      // Should contain truncated description in brief mode by default
+      expect(result).toContain('<description>');
       // Should not contain custom fields in brief mode by default
       expect(result).not.toContain('<custom_fields>');
     });
@@ -96,7 +96,7 @@ describe('Issue Formatters', () => {
 
     it('should truncate description when enabled', () => {
       const briefFields = createDefaultBriefFields();
-      briefFields.description = true;
+      briefFields.description = "truncated";
       
       const result = formatIssueBrief(mockComplexIssue, briefFields, 100);
       
@@ -226,9 +226,9 @@ describe('Issue Formatters', () => {
       console.log(`Full mode length: ${fullResult.length} characters`);
       console.log(`Size reduction: ${((fullResult.length - briefResult.length) / fullResult.length * 100).toFixed(1)}%`);
       
-      // Verify significant reduction (should be >80% reduction)
+      // Verify significant reduction (should be >70% reduction with truncated descriptions)
       const reductionPercentage = (fullResult.length - briefResult.length) / fullResult.length * 100;
-      expect(reductionPercentage).toBeGreaterThan(80);
+      expect(reductionPercentage).toBeGreaterThan(70);
     });
 
     it('should maintain essential information in brief mode', () => {

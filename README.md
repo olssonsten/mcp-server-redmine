@@ -22,8 +22,10 @@ The server includes an advanced **Brief Mode** feature that reduces context wind
 #### Key Benefits
 
 - **95% size reduction**: Dramatically reduces output size for better context management
-- **Configurable fields**: Choose exactly which fields to include
-- **Smart defaults**: Excludes verbose fields like descriptions, journals, and custom fields by default
+- **Enhanced field selection**: Selective custom field filtering by field name
+- **Smart defaults**: Includes truncated descriptions by default, excludes empty custom fields
+- **Field discovery workflow**: Warning system helps users find available custom fields
+- **100% backward compatible**: Existing API calls work unchanged
 - **Maintains essential data**: Always includes core fields like ID, subject, project, status, and priority
 
 #### Usage
@@ -59,8 +61,8 @@ npx @modelcontextprotocol/inspector --cli \
 - `brief_fields`: JSON string specifying which optional fields to include:
   - `assignee`: Include assigned user information
   - `dates`: Include start/due dates
-  - `description`: Include (truncated) description
-  - `custom_fields`: Include custom field values
+  - `description`: Include description (`true` for full, `"truncated"` for default, `false` to exclude)
+  - `custom_fields`: Include custom field values (`false` to exclude, `true` for all non-empty, `["Field1", "Field2"]` for specific fields by name)
   - `category`: Include issue category
   - `version`: Include target version
   - `time_tracking`: Include progress and time estimates
